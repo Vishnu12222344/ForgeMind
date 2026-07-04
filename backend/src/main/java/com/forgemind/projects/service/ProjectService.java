@@ -233,4 +233,8 @@ public class ProjectService {
 
         return description.trim();
     }
+    @Transactional(readOnly = true)
+    public Project getProjectEntityForUser(UUID userId, UUID projectId) {
+        return findProjectForUser(projectId, userId);
+    }
 }

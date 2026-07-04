@@ -62,6 +62,11 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
         <!-- Flyway MySQL Support -->
         <dependency>
             <groupId>org.flywaydb</groupId>
