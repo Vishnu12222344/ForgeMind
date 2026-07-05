@@ -6,17 +6,23 @@ spring:
   application:
     name: forgemind-ai
 
-  mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
+  spring:
+    mail:
+      host: ${MAIL_HOST:smtp.gmail.com}
+      port: ${MAIL_PORT:587}
+      username: ${MAIL_USERNAME:}
+      password: ${MAIL_PASSWORD:}
+      properties:
+        mail:
+          smtp:
+            auth: true
+            starttls:
+              enable: true
+            connectiontimeout: 10000
+            timeout: 10000
+            writetimeout: 10000
+
+
 
   security:
     oauth2:
@@ -66,6 +72,9 @@ app:
   frontend-url: ${APP_FRONTEND_URL}
   mail:
     provider: ${MAIL_PROVIDER:log}
+    resend:
+      api-key: ${RESEND_API_KEY:}
+      from: ${MAIL_FROM:ForgeMind AI <onboarding@resend.dev>}
 
     email-verification:
       otp-expiration-minutes: 10
