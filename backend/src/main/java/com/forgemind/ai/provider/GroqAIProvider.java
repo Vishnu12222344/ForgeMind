@@ -122,7 +122,11 @@ public class GroqAIProvider implements AIProvider {
         StringBuilder prompt = new StringBuilder();
 
         prompt.append("Project name:\n");
-        prompt.append(request.projectName()).append("\n\n");
+        prompt.append(
+                request.projectName() == null || request.projectName().isBlank()
+                        ? "General ForgeMind AI Assistant"
+                        : request.projectName()
+        ).append("\n\n");
 
         prompt.append("User question:\n");
         prompt.append(request.userMessage()).append("\n\n");

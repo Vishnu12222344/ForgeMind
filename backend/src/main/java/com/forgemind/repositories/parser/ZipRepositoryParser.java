@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.ZipEntry;
@@ -33,6 +34,14 @@ public class ZipRepositoryParser {
     private long maxUncompressedSizeMb;
 
     public ParsedRepositoryResult parse(MultipartFile zipFile, SourceRepository repository) {
+        try {
+            return parse(zipFile.getInputStream(), repository);
+        } catch (IOException ex) {
+            throw new BadRequestException("Failed to read ZIP file: " + ex.getMessage());
+        }
+    }
+
+    public ParsedRepositoryResult parse(InputStream inputStream, SourceRepository repository) {
         Map<String, Long> languageStats = new HashMap<>();
         Set<String> folderPaths = new HashSet<>();
 
@@ -44,7 +53,7 @@ public class ZipRepositoryParser {
         long maxStoredBytes = maxStoredFileSizeKb * 1024;
         long maxUncompressedBytes = maxUncompressedSizeMb * 1024 * 1024;
 
-        try (ZipInputStream zis = new ZipInputStream(zipFile.getInputStream())) {
+        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
             ZipEntry entry;
 
             while ((entry = zis.getNextEntry()) != null) {
@@ -141,7 +150,6 @@ public class ZipRepositoryParser {
                 .languageStats(languageStats)
                 .build();
     }
-
     private void validateZipPath(String path) {
         if (path.contains("..") || path.startsWith("/") || path.startsWith("\\")) {
             throw new BadRequestException("Invalid ZIP entry path detected");

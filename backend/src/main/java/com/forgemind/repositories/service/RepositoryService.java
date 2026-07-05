@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.forgemind.common.exception.BadRequestException;
 import com.forgemind.common.exception.ResourceNotFoundException;
 import com.forgemind.projects.entity.Project;
+import com.forgemind.projects.entity.ProjectVisibility;
+import com.forgemind.projects.mapper.ProjectMapper;
 import com.forgemind.projects.service.ProjectService;
-import com.forgemind.repositories.dto.RepositoryFileResponse;
-import com.forgemind.repositories.dto.RepositoryResponse;
-import com.forgemind.repositories.dto.RepositoryTreeNodeResponse;
+import com.forgemind.repositories.dto.*;
 import com.forgemind.repositories.entity.RepositoryFile;
 import com.forgemind.repositories.entity.RepositoryFileType;
 import com.forgemind.repositories.entity.RepositoryStatus;
@@ -26,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.*;
 
@@ -38,6 +40,7 @@ public class RepositoryService {
     private final ProjectService projectService;
     private final UserService userService;
     private final ZipRepositoryParser zipRepositoryParser;
+    private final GitHubRepositoryImportService gitHubRepositoryImportService;
     private final ObjectMapper objectMapper;
 
     @Value("${app.repository.max-upload-size-mb:100}")
@@ -126,6 +129,92 @@ public class RepositoryService {
 
         return buildTree(files);
     }
+    @Transactional
+    public RepositoryImportResponse uploadRepositoryWithoutProject(
+            UUID userId,
+            MultipartFile file,
+            String projectName
+    ) {
+        validateUpload(file);
+
+        String resolvedProjectName = projectName != null && !projectName.isBlank()
+                ? projectName.trim()
+                : resolveProjectNameFromFilename(file.getOriginalFilename());
+
+        Project project = projectService.createProjectEntityForUser(
+                userId,
+                resolvedProjectName,
+                "Project automatically created from ZIP upload.",
+                ProjectVisibility.PRIVATE,
+                List.of("zip-upload")
+        );
+
+        User user = userService.findById(userId);
+
+        SourceRepository repository = createRepositoryShell(
+                project,
+                user,
+                Objects.requireNonNull(file.getOriginalFilename())
+        );
+
+        try {
+            ParsedRepositoryResult result = zipRepositoryParser.parse(file, repository);
+            RepositoryResponse repositoryResponse = finalizeRepository(repository, result);
+
+            return RepositoryImportResponse.builder()
+                    .project(ProjectMapper.toResponse(project))
+                    .repository(repositoryResponse)
+                    .build();
+
+        } catch (RuntimeException ex) {
+            markRepositoryFailed(repository, ex);
+            throw ex;
+        }
+    }
+
+    @Transactional
+    public RepositoryImportResponse importGitHubRepository(
+            UUID userId,
+            String repoUrl,
+            String branch
+    ) {
+        GitHubDownloadedRepository downloadedRepository =
+                gitHubRepositoryImportService.downloadRepository(repoUrl, branch);
+
+        Project project = projectService.createProjectEntityForUser(
+                userId,
+                downloadedRepository.repoName(),
+                downloadedRepository.description() != null
+                        ? downloadedRepository.description()
+                        : "Project automatically imported from GitHub: " + downloadedRepository.fullName(),
+                ProjectVisibility.PRIVATE,
+                List.of("github", downloadedRepository.owner())
+        );
+
+        User user = userService.findById(userId);
+
+        SourceRepository repository = createRepositoryShell(
+                project,
+                user,
+                downloadedRepository.repoName() + "-" + downloadedRepository.branch() + ".zip"
+        );
+
+        try {
+            InputStream inputStream = new ByteArrayInputStream(downloadedRepository.zipBytes());
+
+            ParsedRepositoryResult result = zipRepositoryParser.parse(inputStream, repository);
+            RepositoryResponse repositoryResponse = finalizeRepository(repository, result);
+
+            return RepositoryImportResponse.builder()
+                    .project(ProjectMapper.toResponse(project))
+                    .repository(repositoryResponse)
+                    .build();
+
+        } catch (RuntimeException ex) {
+            markRepositoryFailed(repository, ex);
+            throw ex;
+        }
+    }
 
     @Transactional(readOnly = true)
     public RepositoryFileResponse getFile(UUID userId, UUID projectId, UUID fileId) {
@@ -147,6 +236,67 @@ public class RepositoryService {
 
         repositoryFileRepository.deleteByRepository_Id(repository.getId());
         sourceRepositoryRepository.delete(repository);
+    }
+
+    private SourceRepository createRepositoryShell(
+            Project project,
+            User user,
+            String originalFilename
+    ) {
+        SourceRepository repository = SourceRepository.builder()
+                .project(project)
+                .uploadedBy(user)
+                .originalFilename(originalFilename)
+                .status(RepositoryStatus.PARSING)
+                .totalFiles(0)
+                .totalFolders(0)
+                .totalSizeBytes(0)
+                .primaryLanguage(null)
+                .languageStatsJson("{}")
+                .parseError(null)
+                .parsedAt(null)
+                .build();
+
+        return sourceRepositoryRepository.save(repository);
+    }
+
+    private RepositoryResponse finalizeRepository(
+            SourceRepository repository,
+            ParsedRepositoryResult result
+    ) {
+        repository.setStatus(RepositoryStatus.READY);
+        repository.setTotalFiles(result.totalFiles());
+        repository.setTotalFolders(result.totalFolders());
+        repository.setTotalSizeBytes(result.totalSizeBytes());
+        repository.setPrimaryLanguage(result.primaryLanguage());
+        repository.setLanguageStatsJson(toJson(result.languageStats()));
+        repository.setParsedAt(Instant.now());
+
+        SourceRepository savedRepository = sourceRepositoryRepository.save(repository);
+
+        return RepositoryMapper.toRepositoryResponse(savedRepository, result.languageStats());
+    }
+
+    private void markRepositoryFailed(SourceRepository repository, RuntimeException ex) {
+        repository.setStatus(RepositoryStatus.FAILED);
+        repository.setParseError(ex.getMessage());
+        sourceRepositoryRepository.save(repository);
+    }
+
+    private String resolveProjectNameFromFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "Uploaded Repository";
+        }
+
+        String cleaned = filename.trim();
+
+        if (cleaned.toLowerCase().endsWith(".zip")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 4);
+        }
+
+        cleaned = cleaned.replaceAll("[_-]+", " ").trim();
+
+        return cleaned.isBlank() ? "Uploaded Repository" : cleaned;
     }
 
     private SourceRepository getRepositoryEntityForUser(UUID userId, UUID projectId) {

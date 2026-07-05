@@ -67,6 +67,36 @@ public class ProjectService {
         return ProjectMapper.toResponse(savedProject);
     }
 
+    @Transactional
+    public Project createProjectEntityForUser(
+            UUID userId,
+            String name,
+            String description,
+            ProjectVisibility visibility,
+            List<String> tags
+    ) {
+        User user = userService.findById(userId);
+        Workspace workspace = workspaceService.getPersonalWorkspace(userId);
+
+        String projectName = sanitizeRequiredName(name);
+        String slug = generateUniqueSlug(workspace.getId(), projectName, null);
+
+        Project project = Project.builder()
+                .workspace(workspace)
+                .createdBy(user)
+                .name(projectName)
+                .slug(slug)
+                .description(normalizeDescription(description))
+                .visibility(visibility == null ? ProjectVisibility.PRIVATE : visibility)
+                .archived(false)
+                .favorite(false)
+                .build();
+
+        project.replaceTags(tags);
+
+        return projectRepository.save(project);
+    }
+
     @Transactional(readOnly = true)
     public Page<ProjectResponse> getProjects(
             UUID userId,
