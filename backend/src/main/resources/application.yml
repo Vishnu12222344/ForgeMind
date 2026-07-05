@@ -1,28 +1,21 @@
-server:
-  port: ${SERVER_PORT:8080}
-  forward-headers-strategy: framework
-
 spring:
   application:
     name: forgemind-ai
 
-  spring:
-    mail:
-      host: ${MAIL_HOST:smtp.gmail.com}
-      port: ${MAIL_PORT:587}
-      username: ${MAIL_USERNAME:}
-      password: ${MAIL_PASSWORD:}
-      properties:
-        mail:
-          smtp:
-            auth: true
-            starttls:
-              enable: true
-            connectiontimeout: 10000
-            timeout: 10000
-            writetimeout: 10000
-
-
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
 
   security:
     oauth2:
@@ -36,7 +29,6 @@ spring:
               - profile
               - email
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-
           github:
             client-id: ${GITHUB_CLIENT_ID:}
             client-secret: ${GITHUB_CLIENT_SECRET:}
@@ -70,15 +62,17 @@ spring:
 
 app:
   frontend-url: ${APP_FRONTEND_URL}
+
   mail:
     provider: ${MAIL_PROVIDER:log}
     resend:
-      api-key: ${RESEND_API_KEY:}
+      api-key: ${RESEND_API_KEY}
       from: ${MAIL_FROM:ForgeMind AI <onboarding@resend.dev>}
 
-    email-verification:
-      otp-expiration-minutes: 10
-      max-attempts: 5
+  email-verification:
+    otp-expiration-minutes: 10
+    max-attempts: 5
+
   jwt:
     secret: ${APP_JWT_SECRET}
     access-token-expiration-ms: ${APP_JWT_ACCESS_TOKEN_EXPIRATION_MS:900000}
@@ -90,12 +84,11 @@ app:
     max-uncompressed-size-mb: ${APP_REPOSITORY_MAX_UNCOMPRESSED_SIZE_MB:250}
 
   ai:
-    provider: ${APP_AI_PROVIDER:groq}
-
-    groq:
-      api-key: ${GROQ_API_KEY}
-      model: ${GROQ_MODEL:llama-3.1-8b-instant}
-      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+    provider: glm
+    glm:
+      api-key: ${GLM_API_KEY}
+      model: ${GLM_MODEL:glm-4.6}
+      base-url: ${GLM_BASE_URL:https://api.z.ai/api/paas/v4}
 
 springdoc:
   swagger-ui:
@@ -111,3 +104,6 @@ management:
     web:
       exposure:
         include: health,info
+  health:
+    mail:
+      enabled: false

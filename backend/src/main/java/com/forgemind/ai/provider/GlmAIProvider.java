@@ -14,25 +14,25 @@ import java.util.Map;
 @RequiredArgsConstructor
 @ConditionalOnProperty(
         name = "app.ai.provider",
-        havingValue = "groq"
+        havingValue = "glm"
 )
-public class GroqAIProvider implements AIProvider {
+public class GlmAIProvider implements AIProvider {
 
     private final RestClient.Builder restClientBuilder;
 
-    @Value("${app.ai.groq.api-key:}")
+    @Value("${app.ai.glm.api-key:}")
     private String apiKey;
 
-    @Value("${app.ai.groq.model:llama-3.1-8b-instant}")
+    @Value("${app.ai.glm.model:glm-4.6}")
     private String model;
 
-    @Value("${app.ai.groq.base-url:https://api.groq.com/openai/v1}")
+    @Value("${app.ai.glm.base-url:https://api.z.ai/api/paas/v4}")
     private String baseUrl;
 
     @Override
     public AIProviderResponse generate(AIProviderRequest request) {
         if (apiKey == null || apiKey.isBlank() || apiKey.contains("PASTE_YOUR")) {
-            throw new BadRequestException("Groq API key is not configured");
+            throw new BadRequestException("GLM API key is not configured");
         }
 
         List<AIContextFile> contextFiles = request.contextFiles() == null
@@ -51,26 +51,20 @@ public class GroqAIProvider implements AIProvider {
         Map<String, Object> requestBody = Map.of(
                 "model", model,
                 "messages", List.of(
-                        Map.of(
-                                "role", "system",
-                                "content", systemPrompt
-                        ),
-                        Map.of(
-                                "role", "user",
-                                "content", userPrompt
-                        )
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", userPrompt)
                 ),
                 "temperature", 0.3,
                 "max_tokens", 4096
         );
 
         try {
-            GroqChatCompletionResponse response = restClient
+            GlmChatCompletionResponse response = restClient
                     .post()
                     .uri("/chat/completions")
                     .body(requestBody)
                     .retrieve()
-                    .body(GroqChatCompletionResponse.class);
+                    .body(GlmChatCompletionResponse.class);
 
             String content = extractText(response);
 
@@ -95,7 +89,7 @@ public class GroqAIProvider implements AIProvider {
                     .build();
 
         } catch (Exception ex) {
-            throw new BadRequestException("Groq API request failed: " + ex.getMessage());
+            throw new BadRequestException("GLM API request failed: " + ex.getMessage());
         }
     }
 
@@ -138,7 +132,6 @@ public class GroqAIProvider implements AIProvider {
                 prompt.append("File path: ").append(file.path()).append("\n");
                 prompt.append("Language: ").append(file.language()).append("\n");
                 prompt.append("Content:\n");
-
                 prompt.append("```").append(toMarkdownFence(file.language())).append("\n");
 
                 String content = file.content() == null ? "" : file.content();
@@ -165,29 +158,26 @@ public class GroqAIProvider implements AIProvider {
         return prompt.toString();
     }
 
-    private String extractText(GroqChatCompletionResponse response) {
+    private String extractText(GlmChatCompletionResponse response) {
         if (response == null || response.choices() == null || response.choices().isEmpty()) {
-            return "No response was returned by Groq.";
+            return "No response was returned by GLM.";
         }
 
-        GroqChoice choice = response.choices().get(0);
+        GlmChoice choice = response.choices().get(0);
 
         if (choice.message() == null || choice.message().content() == null) {
-            return "Groq returned an empty response.";
+            return "GLM returned an empty response.";
         }
 
         String content = choice.message().content();
 
-        return content.isBlank()
-                ? "Groq returned an empty response."
-                : content;
+        return content.isBlank() ? "GLM returned an empty response." : content;
     }
 
     private long estimateTokens(String text) {
         if (text == null || text.isBlank()) {
             return 0;
         }
-
         return Math.max(1, text.length() / 4);
     }
 
@@ -215,28 +205,28 @@ public class GroqAIProvider implements AIProvider {
         };
     }
 
-    public record GroqChatCompletionResponse(
+    public record GlmChatCompletionResponse(
             String id,
             String model,
-            List<GroqChoice> choices,
-            GroqUsage usage
+            List<GlmChoice> choices,
+            GlmUsage usage
     ) {
     }
 
-    public record GroqChoice(
+    public record GlmChoice(
             Integer index,
-            GroqMessage message,
+            GlmMessage message,
             String finish_reason
     ) {
     }
 
-    public record GroqMessage(
+    public record GlmMessage(
             String role,
             String content
     ) {
     }
 
-    public record GroqUsage(
+    public record GlmUsage(
             long prompt_tokens,
             long completion_tokens,
             long total_tokens
