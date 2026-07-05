@@ -66,7 +66,7 @@ app:
   mail:
     provider: ${MAIL_PROVIDER:log}
     resend:
-      api-key: ${RESEND_API_KEY}
+      api-key: ${RESEND_API_KEY:}
       from: ${MAIL_FROM:ForgeMind AI <onboarding@resend.dev>}
 
   email-verification:
@@ -84,11 +84,18 @@ app:
     max-uncompressed-size-mb: ${APP_REPOSITORY_MAX_UNCOMPRESSED_SIZE_MB:250}
 
   ai:
-    provider: glm
+    # Use AI_PROVIDER env var to switch easily (e.g. AI_PROVIDER=groq or AI_PROVIDER=glm)
+    provider: ${AI_PROVIDER:glm}
+
     glm:
-      api-key: ${GLM_API_KEY}
+      api-key: ${GLM_API_KEY:}
       model: ${GLM_MODEL:glm-4.6}
       base-url: ${GLM_BASE_URL:https://api.z.ai/api/paas/v4}
+
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      model: ${GROQ_MODEL:llama-3.1-8b-instant}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
 
 springdoc:
   swagger-ui:
@@ -96,8 +103,6 @@ springdoc:
 
   api-docs:
     path: /v3/api-docs
-
-
 
 management:
   endpoints:
