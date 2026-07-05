@@ -37,7 +37,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final WorkspaceService workspaceService;
     private final EmailService emailService;
-
+    private final EmailVerificationOtpService emailVerificationOtpService;
     @Value("${app.jwt.refresh-token-expiration-days}")
     private long refreshTokenExpirationDays;
 
@@ -45,10 +45,11 @@ public class AuthService {
     private String frontendUrl;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public RegistrationResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new ConflictException("Email is already registered");
         }
+
         if (userRepository.existsByUsername(request.username())) {
             throw new ConflictException("Username is already taken");
         }
@@ -65,15 +66,15 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        // Every new user automatically gets a Personal Workspace (Section 8.1 spec)
         workspaceService.createPersonalWorkspace(user);
 
-        emailService.sendVerificationEmail(
-                user.getEmail(),
-                frontendUrl + "/verify-email?token=" + generateSimpleToken()
-        );
+        emailVerificationOtpService.createAndSendOtp(user);
 
-        return buildAuthResponse(user);
+        return RegistrationResponse.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .emailVerificationRequired(true)
+                .build();
     }
 
     @Transactional
@@ -87,6 +88,10 @@ public class AuthService {
 
         if (!user.isEnabled()) {
             throw new UnauthorizedException("Account is disabled");
+        }
+
+        if (!user.isEmailVerified()) {
+            throw new UnauthorizedException("Email is not verified. Please verify your email before logging in.");
         }
 
         return buildAuthResponse(user);
@@ -117,6 +122,134 @@ public class AuthService {
                     token.setRevoked(true);
                     refreshTokenRepository.save(token);
                 });
+    }
+
+    @Transactional
+    public AuthResponse verifyEmailOtp(VerifyEmailOtpRequest request) {
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BadRequestException("Invalid OTP"));
+
+        if (user.isEmailVerified()) {
+            return buildAuthResponse(user);
+        }
+
+        emailVerificationOtpService.verifyOtp(user, request.otp());
+
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        return buildAuthResponse(user);
+    }
+
+    @Transactional
+    public void resendVerificationOtp(ResendVerificationOtpRequest request) {
+        User user = userRepository.findByEmail(request.email()).orElse(null);
+
+        // Do not reveal whether email exists.
+        if (user == null) {
+            return;
+        }
+
+        if (user.isEmailVerified()) {
+            return;
+        }
+
+        emailVerificationOtpService.createAndSendOtp(user);
+    }
+
+    @Transactional
+    public AuthResponse oauthLogin(OAuthUserInfo oauthUserInfo) {
+        if (oauthUserInfo.email() == null || oauthUserInfo.email().isBlank()) {
+            throw new BadRequestException("OAuth provider did not return an email address");
+        }
+
+        User user = userRepository.findByEmail(oauthUserInfo.email()).orElse(null);
+
+        if (user == null) {
+            user = User.builder()
+                    .email(oauthUserInfo.email())
+                    .username(generateUniqueUsername(oauthUserInfo))
+                    .fullName(resolveFullName(oauthUserInfo))
+                    .avatarUrl(oauthUserInfo.avatarUrl())
+                    .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .role(Role.USER)
+                    .emailVerified(true)
+                    .enabled(true)
+                    .build();
+
+            user = userRepository.save(user);
+
+            workspaceService.createPersonalWorkspace(user);
+        } else {
+            boolean changed = false;
+
+            if (!user.isEmailVerified()) {
+                user.setEmailVerified(true);
+                changed = true;
+            }
+
+            if (user.getAvatarUrl() == null && oauthUserInfo.avatarUrl() != null) {
+                user.setAvatarUrl(oauthUserInfo.avatarUrl());
+                changed = true;
+            }
+
+            if ((user.getFullName() == null || user.getFullName().isBlank())
+                    && oauthUserInfo.name() != null
+                    && !oauthUserInfo.name().isBlank()) {
+                user.setFullName(oauthUserInfo.name());
+                changed = true;
+            }
+
+            if (changed) {
+                user = userRepository.save(user);
+            }
+        }
+
+        return buildAuthResponse(user);
+    }
+
+    private String resolveFullName(OAuthUserInfo oauthUserInfo) {
+        if (oauthUserInfo.name() != null && !oauthUserInfo.name().isBlank()) {
+            return oauthUserInfo.name();
+        }
+
+        if (oauthUserInfo.username() != null && !oauthUserInfo.username().isBlank()) {
+            return oauthUserInfo.username();
+        }
+
+        return oauthUserInfo.email();
+    }
+
+    private String generateUniqueUsername(OAuthUserInfo oauthUserInfo) {
+        String base;
+
+        if (oauthUserInfo.username() != null && !oauthUserInfo.username().isBlank()) {
+            base = oauthUserInfo.username();
+        } else if (oauthUserInfo.email() != null && oauthUserInfo.email().contains("@")) {
+            base = oauthUserInfo.email().substring(0, oauthUserInfo.email().indexOf("@"));
+        } else {
+            base = "user";
+        }
+
+        base = base
+                .replaceAll("[^a-zA-Z0-9_]", "_")
+                .replaceAll("_+", "_")
+                .replaceAll("^_+|_+$", "")
+                .toLowerCase();
+
+        if (base.isBlank()) {
+            base = "user";
+        }
+
+        String username = base;
+        int suffix = 1;
+
+        while (userRepository.existsByUsername(username)) {
+            username = base + suffix;
+            suffix++;
+        }
+
+        return username;
     }
 
     @Transactional

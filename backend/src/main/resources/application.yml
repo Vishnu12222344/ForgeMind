@@ -1,9 +1,43 @@
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
 
 spring:
   application:
     name: forgemind-ai
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+          github:
+            client-id: ${GITHUB_CLIENT_ID:}
+            client-secret: ${GITHUB_CLIENT_SECRET:}
+            scope:
+              - read:user
+              - user:email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
@@ -30,7 +64,12 @@ spring:
 
 app:
   frontend-url: ${APP_FRONTEND_URL}
+  mail:
+    provider: ${MAIL_PROVIDER:log}
 
+    email-verification:
+      otp-expiration-minutes: 10
+      max-attempts: 5
   jwt:
     secret: ${APP_JWT_SECRET}
     access-token-expiration-ms: ${APP_JWT_ACCESS_TOKEN_EXPIRATION_MS:900000}
@@ -55,6 +94,8 @@ springdoc:
 
   api-docs:
     path: /v3/api-docs
+
+
 
 management:
   endpoints:

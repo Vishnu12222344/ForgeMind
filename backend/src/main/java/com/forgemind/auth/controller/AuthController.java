@@ -15,8 +15,11 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ApiResponse.success("Registration successful", authService.register(request));
+    public ApiResponse<RegistrationResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return ApiResponse.success(
+                "Registration successful. Please verify your email using the OTP sent to your inbox.",
+                authService.register(request)
+        );
     }
 
     @PostMapping("/login")
@@ -33,6 +36,26 @@ public class AuthController {
     public ApiResponse<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
         authService.logout(request.refreshToken());
         return ApiResponse.success("Logged out successfully", null);
+    }
+
+    @PostMapping("/verify-email")
+    public ApiResponse<AuthResponse> verifyEmail(@Valid @RequestBody VerifyEmailOtpRequest request) {
+        return ApiResponse.success(
+                "Email verified successfully",
+                authService.verifyEmailOtp(request)
+        );
+    }
+
+    @PostMapping("/resend-verification-otp")
+    public ApiResponse<Void> resendVerificationOtp(
+            @Valid @RequestBody ResendVerificationOtpRequest request
+    ) {
+        authService.resendVerificationOtp(request);
+
+        return ApiResponse.success(
+                "If the email exists and is not verified, a new OTP has been sent",
+                null
+        );
     }
 
     @PostMapping("/forgot-password")
