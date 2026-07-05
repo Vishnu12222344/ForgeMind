@@ -3,12 +3,14 @@ package com.forgemind.repositories.service;
 import com.forgemind.common.exception.BadRequestException;
 import com.forgemind.repositories.dto.GitHubDownloadedRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.net.URI;
-import java.util.Map;
+import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GitHubRepositoryImportService {
@@ -18,41 +20,43 @@ public class GitHubRepositoryImportService {
     public GitHubDownloadedRepository downloadRepository(String repoUrl, String requestedBranch) {
         GitHubRepoPath path = parseGithubUrl(repoUrl);
 
-        RestClient githubClient = restClientBuilder
-                .baseUrl("https://api.github.com")
-                .defaultHeader("Accept", "application/vnd.github+json")
+        // Branches to try, in order.
+        List<String> branchesToTry;
+
+        if (requestedBranch != null && !requestedBranch.isBlank()) {
+            branchesToTry = List.of(requestedBranch.trim(), "main", "master");
+        } else {
+            branchesToTry = List.of("main", "master");
+        }
+
+        RestClient client = restClientBuilder
                 .defaultHeader("User-Agent", "ForgeMindAI")
+                .defaultHeader("Accept", "application/zip")
                 .build();
 
-        Map<?, ?> repoMetadata;
+        for (String branch : branchesToTry) {
+            byte[] zipBytes = tryDownloadBranch(client, path, branch);
 
-        try {
-            repoMetadata = githubClient
-                    .get()
-                    .uri("/repos/{owner}/{repo}", path.owner(), path.repo())
-                    .retrieve()
-                    .body(Map.class);
-        } catch (Exception ex) {
-            throw new BadRequestException("Unable to access GitHub repository. Make sure the repository is public.");
+            if (zipBytes != null && zipBytes.length > 0) {
+                return new GitHubDownloadedRepository(
+                        path.owner(),
+                        path.repo(),
+                        path.owner() + "/" + path.repo(),
+                        "Project imported from GitHub: " + path.owner() + "/" + path.repo(),
+                        branch,
+                        "https://github.com/" + path.owner() + "/" + path.repo(),
+                        zipBytes
+                );
+            }
         }
 
-        if (repoMetadata == null) {
-            throw new BadRequestException("GitHub repository not found");
-        }
+        throw new BadRequestException(
+                "Could not download repository. Make sure it is public and the branch exists. Tried branches: " + branchesToTry
+        );
+    }
 
-        String defaultBranch = stringValue(repoMetadata.get("default_branch"));
-        String description = stringValue(repoMetadata.get("description"));
-        String htmlUrl = stringValue(repoMetadata.get("html_url"));
-        String fullName = stringValue(repoMetadata.get("full_name"));
-
-        String branch = requestedBranch != null && !requestedBranch.isBlank()
-                ? requestedBranch.trim()
-                : defaultBranch;
-
-        if (branch == null || branch.isBlank()) {
-            branch = "main";
-        }
-
+    private byte[] tryDownloadBranch(RestClient client, GitHubRepoPath path, String branch) {
+        // codeload direct ZIP download URL
         String downloadUrl = "https://codeload.github.com/"
                 + path.owner()
                 + "/"
@@ -60,68 +64,66 @@ public class GitHubRepositoryImportService {
                 + "/zip/refs/heads/"
                 + branch;
 
-        byte[] zipBytes;
-
         try {
-            zipBytes = restClientBuilder
-                    .defaultHeader("User-Agent", "ForgeMindAI")
-                    .build()
+            byte[] zipBytes = client
                     .get()
-                    .uri(downloadUrl)
+                    .uri(URI.create(downloadUrl))
                     .retrieve()
                     .body(byte[].class);
+
+            if (zipBytes != null && zipBytes.length > 0) {
+                log.info("Downloaded GitHub repo {}/{} branch {} ({} bytes)",
+                        path.owner(), path.repo(), branch, zipBytes.length);
+                return zipBytes;
+            }
+
+            return null;
+
         } catch (Exception ex) {
-            throw new BadRequestException("Failed to download GitHub repository ZIP. Check branch name.");
+            log.warn("Failed to download branch {} for {}/{}: {}",
+                    branch, path.owner(), path.repo(), ex.getMessage());
+            return null;
         }
-
-        if (zipBytes == null || zipBytes.length == 0) {
-            throw new BadRequestException("Downloaded GitHub repository ZIP is empty");
-        }
-
-        return new GitHubDownloadedRepository(
-                path.owner(),
-                path.repo(),
-                fullName == null ? path.owner() + "/" + path.repo() : fullName,
-                description,
-                branch,
-                htmlUrl,
-                zipBytes
-        );
     }
 
     private GitHubRepoPath parseGithubUrl(String repoUrl) {
         try {
-            URI uri = URI.create(repoUrl.trim());
+            String cleaned = repoUrl.trim();
 
+            // Allow "owner/repo" shorthand
+            if (!cleaned.contains("github.com") && cleaned.split("/").length == 2) {
+                String[] shorthand = cleaned.split("/");
+                return new GitHubRepoPath(shorthand[0], shorthand[1].replaceAll("\\.git$", ""));
+            }
+
+            URI uri = URI.create(cleaned);
             String host = uri.getHost();
 
             if (host == null || !host.equalsIgnoreCase("github.com")) {
                 throw new BadRequestException("Only github.com repository URLs are supported");
             }
 
-            String path = uri.getPath();
+            String p = uri.getPath();
 
-            if (path == null || path.isBlank()) {
+            if (p == null || p.isBlank()) {
                 throw new BadRequestException("Invalid GitHub repository URL");
             }
 
-            path = path.replaceAll("^/+", "").replaceAll("\\.git$", "");
+            p = p.replaceAll("^/+", "").replaceAll("\\.git$", "");
 
-            String[] parts = path.split("/");
+            String[] parts = p.split("/");
 
-            if (parts.length < 2) {
+            if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
                 throw new BadRequestException("Invalid GitHub repository URL");
             }
 
             return new GitHubRepoPath(parts[0], parts[1]);
 
-        } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Invalid GitHub repository URL");
+        } catch (BadRequestException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BadRequestException("Invalid GitHub repository URL: " + ex.getMessage());
         }
-    }
-
-    private String stringValue(Object value) {
-        return value == null ? null : String.valueOf(value);
     }
 
     private record GitHubRepoPath(
