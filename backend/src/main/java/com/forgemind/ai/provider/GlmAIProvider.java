@@ -55,7 +55,7 @@ public class GlmAIProvider implements AIProvider {
                         Map.of("role", "user", "content", userPrompt)
                 ),
                 "temperature", 0.3,
-                "max_tokens", 4096
+                "max_tokens", 8192
         );
 
         try {
