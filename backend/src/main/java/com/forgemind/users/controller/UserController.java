@@ -36,6 +36,19 @@ public class UserController {
                                                    @Valid @RequestBody UpdateProfileRequest request) {
         return ApiResponse.success("Profile updated", userService.updateProfile(principal.getId(), request));
     }
+    private String buildBaseUrl(HttpServletRequest request) {
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        String forwardedHost = request.getHeader("X-Forwarded-Host");
+
+        if (forwardedProto != null && forwardedHost != null) {
+            return forwardedProto + "://" + forwardedHost;
+        }
+
+        return ServletUriComponentsBuilder.fromRequestUri(request)
+                .replacePath(null)
+                .build()
+                .toUriString();
+    }
 
     @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<UserResponse> uploadAvatar(
@@ -43,9 +56,7 @@ public class UserController {
             @RequestParam("file") MultipartFile file,
             HttpServletRequest request) {
 
-        String baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
-                .replacePath(null)
-                .build().toUriString();
+        String baseUrl = buildBaseUrl(request);
 
         return ApiResponse.success("Avatar updated", userService.uploadAvatar(principal.getId(), file, baseUrl));
     }
@@ -54,8 +65,11 @@ public class UserController {
     @GetMapping("/{userId}/avatar")
     public ResponseEntity<byte[]> getAvatar(@PathVariable UUID userId) {
         UserAvatar avatar = userService.getAvatar(userId);
+
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(avatar.getContentType()))
+                .header("Cache-Control", "public, max-age=86400")
+                .header("Access-Control-Allow-Origin", "*")
                 .body(avatar.getData());
     }
 
