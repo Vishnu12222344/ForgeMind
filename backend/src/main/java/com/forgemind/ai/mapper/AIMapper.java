@@ -19,13 +19,12 @@ public class AIMapper {
     public static AIConversationSummaryResponse toSummary(AIConversation conversation) {
         return AIConversationSummaryResponse.builder()
                 .id(conversation.getId())
-                .projectId(conversation.getProject().getId())
+                .projectId(conversation.getProject() != null ? conversation.getProject().getId() : null)
                 .title(conversation.getTitle())
                 .createdAt(conversation.getCreatedAt())
                 .updatedAt(conversation.getUpdatedAt())
                 .build();
     }
-
     public static AIConversationResponse toConversation(
             AIConversation conversation,
             List<AIMessage> messages,
@@ -33,7 +32,7 @@ public class AIMapper {
     ) {
         return AIConversationResponse.builder()
                 .id(conversation.getId())
-                .projectId(conversation.getProject().getId())
+                .projectId(conversation.getProject() != null ? conversation.getProject().getId() : null)
                 .title(conversation.getTitle())
                 .messages(messages.stream().map(message -> toMessage(message, objectMapper)).toList())
                 .createdAt(conversation.getCreatedAt())
