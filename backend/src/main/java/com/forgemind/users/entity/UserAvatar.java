@@ -2,6 +2,8 @@ package com.forgemind.users.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -15,6 +17,7 @@ import java.util.UUID;
 public class UserAvatar {
 
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "user_id", columnDefinition = "CHAR(36)")
     private UUID userId;
 
