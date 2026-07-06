@@ -73,7 +73,7 @@ public class DocumentationContextService {
 
         files.stream()
                 .sorted(Comparator.comparing(RepositoryFile::getPath))
-                .limit(350)
+                .limit(80)
                 .forEach(file -> {
                     int depth = Math.max(0, file.getDepth());
                     builder.append("  ".repeat(depth));
@@ -112,7 +112,7 @@ public class DocumentationContextService {
                 .filter(file -> !file.isBinaryFile())
                 .filter(file -> file.getContent() != null && !file.getContent().isBlank())
                 .sorted(Comparator.comparingInt(this::scoreFile).reversed())
-                .limit(8)
+                .limit(3)
                 .map(file -> AIContextFile.builder()
                         .id(file.getId())
                         .path(file.getPath())

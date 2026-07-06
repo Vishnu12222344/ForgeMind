@@ -143,8 +143,8 @@ public class GroqAIProvider implements AIProvider {
 
                 String content = file.content() == null ? "" : file.content();
 
-                if (content.length() > 6000) {
-                    content = content.substring(0, 6000) + "\n// ... truncated";
+                if (content.length() > 2000) {
+                    content = content.substring(0, 2000) + "\n// ... truncated";
                 }
 
                 prompt.append(content).append("\n");

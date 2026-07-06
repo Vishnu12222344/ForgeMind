@@ -156,72 +156,35 @@ public class DocumentationService {
         prompt.append(context.repositoryTree()).append("\n\n");
 
         prompt.append("""
-            Documentation requirements:
+    Generate concise project documentation covering:
+    1. Summary and purpose
+    2. Tech stack
+    3. Folder structure
+    4. Architecture overview
+    5. Setup instructions
+    6. Key files explanation
+    7. Improvements
 
-            Include as much useful information as possible:
-            1. Executive summary
-            2. Project purpose
-            3. Technology stack
-            4. Folder structure explanation
-            5. Module/package breakdown
-            6. Important files and what they do
-            7. Backend architecture, if backend exists
-            8. Frontend architecture, if frontend exists
-            9. Database/entity explanation, if detectable
-            10. API endpoints, if detectable
-            11. Authentication/security flow, if detectable
-            12. Repository/code flow explanation
-            13. Setup and installation guide
-            14. Environment variables
-            15. How to run locally
-            16. How to build/deploy
-            17. Main user flows
-            18. Developer notes
-            19. Possible improvements
-            20. Known assumptions or missing information
-
-            Important:
-            - Be specific to the repository.
-            - Reference real paths where possible.
-            - Do not invent files that do not exist.
-            - If something is not available, say "Not detected from repository context".
-            """);
+    Rules:
+    - Use Markdown
+    - Reference real file paths
+    - Be concise
+    - Say "Not detected" if info is missing
+    """);
 
         if (includeFlowcharts) {
             prompt.append("""
-                
-                Flowchart requirements:
-                Include Mermaid diagrams in Markdown.
 
-                Add at least these diagrams when possible:
+        Include one Mermaid flowchart showing the main application flow:
 
-                1. Overall architecture:
-                ```mermaid
-                flowchart TD
-                  User[User] --> Frontend[Frontend]
-                  Frontend --> Backend[Backend API]
-                  Backend --> Database[(Database)]
-                  Backend --> AI[AI Provider]
-                ```
+        ```mermaid
+        flowchart TD
+          A[Start] --> B[Step]
+          B --> C[Step]
+        ```
 
-                2. Main application flow:
-                ```mermaid
-                flowchart TD
-                  A[Start] --> B[Register/Login]
-                  B --> C[Dashboard]
-                  C --> D[Create or Import Project]
-                  D --> E[Upload/Parse Repository]
-                  E --> F[Explore Files]
-                  F --> G[Ask AI]
-                  G --> H[Generate Documentation]
-                ```
-
-                3. Repository parsing flow
-                4. AI question-answer flow
-                5. Authentication flow if detectable
-
-                Make Mermaid diagrams valid and readable.
-                """);
+        Keep diagrams simple and valid.
+        """);
         }
 
         if (additionalInstructions != null && !additionalInstructions.isBlank()) {
