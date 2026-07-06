@@ -13,6 +13,9 @@ public interface AIConversationRepository extends JpaRepository<AIConversation, 
     List<AIConversation> findByProject_IdOrderByUpdatedAtDesc(UUID projectId);
 
     Optional<AIConversation> findByIdAndProject_Id(UUID id, UUID projectId);
+    List<AIConversation> findByUser_IdAndProjectIsNullOrderByUpdatedAtDesc(UUID userId);
+
+    Optional<AIConversation> findByIdAndUser_Id(UUID id, UUID userId);
 
     @EntityGraph(attributePaths = {"project", "user"})
     Optional<AIConversation> findWithProjectAndUserByIdAndProject_Id(UUID id, UUID projectId);
