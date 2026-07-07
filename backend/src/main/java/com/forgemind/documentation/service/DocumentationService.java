@@ -189,39 +189,31 @@ public class DocumentationService {
 
         if (includeFlowcharts) {
             prompt.append("""
-                
-                Flowchart requirements:
-                Include Mermaid diagrams in Markdown.
+        
+        Mermaid requirements:
+        - Use ONLY very simple Mermaid syntax.
+        - Use `flowchart TD`
+        - Use short node IDs like A, B, C, D
+        - Use plain text labels only
+        - Do NOT use brackets inside labels unless necessary
+        - Do NOT use parentheses, quotes, colons, HTML, markdown, bullet points, emojis, or special symbols inside Mermaid node labels
+        - Do NOT use subgraphs
+        - Do NOT use styling, classes, click handlers, or advanced Mermaid features
+        - Produce only valid Mermaid blocks
 
-                Add at least these diagrams when possible:
+        Example valid Mermaid format:
 
-                1. Overall architecture:
-                ```mermaid
-                flowchart TD
-                  User[User] --> Frontend[Frontend]
-                  Frontend --> Backend[Backend API]
-                  Backend --> Database[(Database)]
-                  Backend --> AI[AI Provider]
-                ```
+        ```mermaid
+        flowchart TD
+          A[User] --> B[Frontend]
+          B --> C[Backend]
+          C --> D[Database]
+          C --> E[AI Provider]
+        ```
 
-                2. Main application flow:
-                ```mermaid
-                flowchart TD
-                  A[Start] --> B[Register/Login]
-                  B --> C[Dashboard]
-                  C --> D[Create or Import Project]
-                  D --> E[Upload/Parse Repository]
-                  E --> F[Explore Files]
-                  F --> G[Ask AI]
-                  G --> H[Generate Documentation]
-                ```
-
-                3. Repository parsing flow
-                4. AI question-answer flow
-                5. Authentication flow if detectable
-
-                Make Mermaid diagrams valid and readable.
-                """);
+        Include at most 1 or 2 simple Mermaid diagrams.
+        If you are not sure, skip Mermaid completely instead of generating invalid Mermaid.
+        """);
         }
 
         if (additionalInstructions != null && !additionalInstructions.isBlank()) {
