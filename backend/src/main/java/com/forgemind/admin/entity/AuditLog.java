@@ -19,7 +19,7 @@ import java.util.UUID;
         indexes = {
                 @Index(name = "idx_audit_logs_user_id", columnList = "user_id"),
                 @Index(name = "idx_audit_logs_action", columnList = "action"),
-                @Index(name = "idx_audit_logs_timestamp", columnList = "timestamp")
+                @Index(name = "idx_audit_logs_timestamp", columnList = "created_at")
         }
 )
 public class AuditLog {
@@ -30,6 +30,7 @@ public class AuditLog {
     @Column(name = "id", columnDefinition = "CHAR(36)")
     private UUID id;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "user_id", columnDefinition = "CHAR(36)")
     private UUID userId;
 

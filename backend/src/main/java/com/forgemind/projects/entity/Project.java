@@ -1,6 +1,9 @@
 package com.forgemind.projects.entity;
 
+import com.forgemind.ai.entity.AIConversation;
 import com.forgemind.common.entity.BaseEntity;
+import com.forgemind.documentation.entity.GeneratedDocument;
+import com.forgemind.repositories.entity.SourceRepository;
 import com.forgemind.users.entity.User;
 import com.forgemind.workspaces.entity.Workspace;
 import jakarta.persistence.*;
@@ -80,6 +83,17 @@ public class Project extends BaseEntity {
     )
     @Builder.Default
     private Set<ProjectTag> tags = new LinkedHashSet<>();
+
+    @OneToOne(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private SourceRepository sourceRepository;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<AIConversation> aiConversations = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<GeneratedDocument> generatedDocuments = new LinkedHashSet<>();
 
     public void replaceTags(Collection<String> tagNames) {
         this.tags.clear();

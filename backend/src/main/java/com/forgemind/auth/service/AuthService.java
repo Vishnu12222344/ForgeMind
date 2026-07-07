@@ -293,12 +293,12 @@ public class AuthService {
 
         User user = resetToken.getUser();
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setEmailVerified(true); // ADD THIS LINE
         userRepository.save(user);
 
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
 
-        // Revoke all existing sessions for this user
         refreshTokenRepository.deleteByUserId(user.getId());
     }
 

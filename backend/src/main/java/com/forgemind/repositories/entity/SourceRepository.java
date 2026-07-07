@@ -9,6 +9,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -59,6 +61,10 @@ public class SourceRepository extends BaseEntity {
 
     @Column(name = "primary_language", length = 100)
     private String primaryLanguage;
+
+    @OneToMany(mappedBy = "repository", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<RepositoryFile> files = new LinkedHashSet<>();
 
     @Lob
     @Column(name = "language_stats_json", columnDefinition = "LONGTEXT")
