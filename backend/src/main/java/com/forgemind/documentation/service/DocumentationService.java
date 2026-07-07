@@ -11,6 +11,7 @@ import com.forgemind.documentation.entity.DocumentationType;
 import com.forgemind.documentation.entity.GeneratedDocument;
 import com.forgemind.documentation.mapper.DocumentationMapper;
 import com.forgemind.documentation.repository.GeneratedDocumentRepository;
+import com.forgemind.notifications.service.NotificationService;
 import com.forgemind.projects.entity.Project;
 import com.forgemind.projects.service.ProjectService;
 import com.forgemind.users.entity.User;
@@ -28,6 +29,7 @@ public class DocumentationService {
 
     private final GeneratedDocumentRepository generatedDocumentRepository;
     private final ProjectService projectService;
+    private final NotificationService notificationService;
     private final UserService userService;
     private final DocumentationContextService documentationContextService;
     private final AIProvider aiProvider;
@@ -73,6 +75,13 @@ public class DocumentationService {
                 .build();
 
         GeneratedDocument saved = generatedDocumentRepository.save(document);
+        notificationService.createNotification(
+                user,
+                "Documentation Generated",
+                "Your document '" + saved.getTitle() + "' has been generated successfully.",
+                "/app/projects/" + project.getId() + "/documentation"
+        );
+
 
         return DocumentationMapper.toResponse(saved);
     }

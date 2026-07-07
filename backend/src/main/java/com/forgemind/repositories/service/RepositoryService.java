@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.forgemind.common.exception.BadRequestException;
 import com.forgemind.common.exception.ResourceNotFoundException;
+import com.forgemind.notifications.service.NotificationService;
 import com.forgemind.projects.entity.Project;
 import com.forgemind.projects.entity.ProjectVisibility;
 import com.forgemind.projects.mapper.ProjectMapper;
@@ -38,6 +39,7 @@ public class RepositoryService {
     private final SourceRepositoryRepository sourceRepositoryRepository;
     private final RepositoryFileRepository repositoryFileRepository;
     private final ProjectService projectService;
+    private final NotificationService notificationService;
     private final UserService userService;
     private final ZipRepositoryParser zipRepositoryParser;
     private final GitHubRepositoryImportService gitHubRepositoryImportService;
@@ -98,6 +100,12 @@ public class RepositoryService {
             repository.setParsedAt(Instant.now());
 
             SourceRepository savedRepository = sourceRepositoryRepository.save(repository);
+            notificationService.createNotification(
+                    user,
+                    "Repository Parsing Ready",
+                    "Your repository '" + savedRepository.getOriginalFilename() + "' was safely parsed and is ready to explore.",
+                    "/app/projects/" + project.getId() + "/repository"
+            );
 
             return RepositoryMapper.toRepositoryResponse(savedRepository, result.languageStats());
         } catch (RuntimeException ex) {
@@ -160,6 +168,13 @@ public class RepositoryService {
         try {
             ParsedRepositoryResult result = zipRepositoryParser.parse(file, repository);
             RepositoryResponse repositoryResponse = finalizeRepository(repository, result);
+            notificationService.createNotification(
+                    user,
+                    "Project Created from ZIP",
+                    "Project '" + project.getName() + "' has been auto-created and your repository files are ready to explore.",
+                    "/app/projects/" + project.getId() + "/repository"
+            );
+
 
             return RepositoryImportResponse.builder()
                     .project(ProjectMapper.toResponse(project))
@@ -204,6 +219,12 @@ public class RepositoryService {
 
             ParsedRepositoryResult result = zipRepositoryParser.parse(inputStream, repository);
             RepositoryResponse repositoryResponse = finalizeRepository(repository, result);
+            notificationService.createNotification(
+                    user,
+                    "GitHub Repository Imported",
+                    "Your GitHub repository '" + downloadedRepository.repoName() + "' was successfully imported and indexed.",
+                    "/app/projects/" + project.getId() + "/repository"
+            );
 
             return RepositoryImportResponse.builder()
                     .project(ProjectMapper.toResponse(project))

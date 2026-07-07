@@ -1,5 +1,6 @@
 package com.forgemind.auth.service;
 
+import com.forgemind.admin.service.AuditLogService;
 import com.forgemind.auth.dto.*;
 import com.forgemind.auth.entity.PasswordResetToken;
 import com.forgemind.auth.entity.RefreshToken;
@@ -35,6 +36,7 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuditLogService auditLogService;
     private final WorkspaceService workspaceService;
     private final EmailService emailService;
     private final EmailVerificationOtpService emailVerificationOtpService;
@@ -93,6 +95,9 @@ public class AuthService {
         if (!user.isEmailVerified()) {
             throw new UnauthorizedException("Email is not verified. Please verify your email before logging in.");
         }
+
+        // WRITE AUDIT LOG ENTRY
+        auditLogService.log(user.getId(), user.getEmail(), "USER_LOGIN", "User logged in with email/password", "SYSTEM");
 
         return buildAuthResponse(user);
     }
@@ -206,6 +211,7 @@ public class AuthService {
         }
 
         return buildAuthResponse(user);
+
     }
 
     private String resolveFullName(OAuthUserInfo oauthUserInfo) {
