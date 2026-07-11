@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/forgemind-backend:${IMAGE_TAG:-latest}
+    container_name: forgemind-backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.production
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
